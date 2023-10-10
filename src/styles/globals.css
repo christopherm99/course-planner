@@ -1,3 +1,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .hourbox {
+    @apply absolute w-full border-t h-12;
+  }
+  .daybox {
+    @apply absolute w-day border-l;
+  }
+}

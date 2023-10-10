@@ -1,8 +1,8 @@
 import request from "request";
 
-export default (req, res) => {
+export default function cors(req, res) {
   const url = req.body.url;
-  console.log(req.body);
+  console.log(req.body.url);
   console.log(`CORS Proxy GET ${url}`);
   request(url).pipe(res);
 }

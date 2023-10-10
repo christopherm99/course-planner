@@ -1,166 +1,82 @@
-import * as $ from 'jquery'
-
-async function getCourses(term, dept) {
-  let data = await $.ajax({
-    type: "POST",
-    url: `/api/cors`,
-    data: {
-      url: `https://sa.ucla.edu/ro/ClassSearch/Public/Search/GetLevelSeparatedSearchData?input={"search_by":"subject","term_cd":"${term}","subj_area_cd":"${dept}"}&level=2`
-    }
-  });
-  try {
-    return data.map((course) => ({
-      num: course.label.match(/[A-Z]*[0-9]+[A-Z]*/)[0],
-      catlg: course.value.crs_catlg_no,
-    }));
-  } catch {
-    console.error(`Failed to fetch ${dept}`);
-    return [];
-  }
-}
-
+import Requirement from "@/components/Requirement";
+import Schedule from "@/components/Schedule";
+import useStore from "@/hooks/useStore";
+import * as $ from "jquery";
+import { useState } from "react";
 
 export default function Home() {
+  const [requirements, setRequirements] = useState([]);
+  const [visible, setVisible] = useState(true);
+  const setTerm = useStore((state) => state.setTerm);
+
   function handleGo(e) {
     e.preventDefault();
 
-    let term = e.target.term.value;
-    let file = e.target.audit.files[0];
+    setTerm(e.target.term.value);
 
+    let file = e.target.audit.files[0];
     let fr = new FileReader();
-    fr.onerror = (e) => alert("Error reading DARS");
+
+    fr.onerror = () => alert("Error reading DARS");
     fr.onload = (event) => {
       let data = event.target.result;
-      let depts = new Set();
-      $(data)
-        .find("div.requirement")
-        .each((i, e) => {
-          e = $(e);
-          if (!e.hasClass("Status_NO") || e.attr("rname") == "TBR") return;
-          var $req = $("<div>").append(
-            $("<h2>").append(e.find(".reqTitle").contents().first()),
-          );
-          e.find(".subrequirement").each((i, e) => {
-            e = $(e);
-            let courses = [];
-            e.find(".selectcourses .fromcourselist td")
-              .contents()
-              .each((i, e) => {
-                if (
-                  courses.length != 0 &&
-                  courses[courses.length - 1].end_num == 0
-                ) {
-                  courses[courses.length - 1].end_num = $(e)
-                    .attr("number")
-                    .trim();
-                } else if (
-                  courses.length != 0 &&
-                  e.tagName &&
-                  courses[courses.length - 1].or.num == 0
-                ) {
-                  console.log(e);
-                  depts.add($(e).attr("department").trim());
-                  courses[courses.length - 1].or.dept = $(e)
-                    .attr("department")
-                    .trim();
-                  courses[courses.length - 1].or.num = $(e)
-                    .attr("number")
-                    .trim();
-                } else if (e.tagName) {
-                  depts.add($(e).attr("department").trim());
-                  courses.push({
-                    dept: $(e).attr("department").trim(),
-                    num: $(e).attr("number").trim(),
-                    end_num: -1,
-                    or: {
-                      dept: "",
-                      num: -1,
-                    },
-                  });
-                } else if (e.textContent == " TO ") {
-                  courses[courses.length - 1].end_num = 0;
-                } else if (e.textContent == " OR ") {
-                  courses[courses.length - 1].or = {
-                    dept: "",
-                    num: 0,
-                  };
-                }
-              });
-            var term = $("#term").val();
-            if (courses.length == 0) return;
-            var $subreq = $("<div>")
-              .append(
-                $("<h3>").append(e.find(".subreqTitle").contents().first()),
-              )
-              .append($("<p>").append(e.find(".subreqNeeds").text()))
-              .append(
-                $("<ol>").append(
-                  ...courses.map((course) =>
-                    $("<li>")
-                      .addClass(course.dept.replace(" ", "-") + course.num)
-                      .css("color", "red")
-                      .append(
-                        $("<details>").append(
-                          $("<summary>").text(
-                            `${course.dept} ${course.num}${
-                              course.end_num == -1
-                                ? ""
-                                : " TO " + course.end_num
-                            }${
-                              course.or.num == -1
-                                ? ""
-                                : " OR " + course.or.dept + " " + course.or.num
-                            }`,
-                          ),
-                        ),
-                      ),
-                  ),
-                ),
-              );
-            $req.append($subreq);
-          });
-          $("#output").append($req);
-        });
-      console.log("depts", depts);
-      depts.forEach(async (dept) => {
-        let courses = await getCourses(term, dept);
-        courses.forEach((course) => {
-          if (
-            $(`.${dept.replace(" ", "-") + course.num}`).css("color") == "black"
-          )
-            return;
-          $(`.${dept.replace(" ", "-") + course.num}`)
-            .css("color", "black")
-            .find("details")
-            .append(
-              $("<a>")
-                .attr(
-                  "href",
-                  `https://sa.ucla.edu/ro/ClassSearch/Results?t=${term}&subj=${dept}&catlg=${course.catlg}`,
-                )
-                .attr("target", "_blank")
-                .text("SOC Link"),
-            );
-        });
-      });
+      setRequirements(
+        $(data)
+          .find("div.requirement")
+          .toArray()
+          .map((e) => $(e))
+          .filter((e) => e.find(".selectcourses").length != 0)
+          .filter((e) => e.hasClass("Status_NO") && e.attr("rname") != "TBR"),
+      );
     };
+
     fr.readAsText(file);
+    setVisible(false);
   }
+
   return (
     <main>
-      <h1>Test Class Signup Page</h1>
-      <form onSubmit={handleGo}>
-        <label>
-          Select Term (ie. "23F") <input id="term" />
-        </label>
-        <br />
-        <label>
-          DARS Output <input id="audit" type="file" accept="text/html" />
-        </label>
-        <br />
-        <button type="submit">GO!</button>
-      </form>
-      <div id="output"></div>
+      <h1 className="text-2xl text-right px-4 py-2 fixed w-full">
+        Class Signup Page
+      </h1>
+      <div className="flex">
+        <div className="flex-none w-2/5 py-2">
+          {visible ? (
+            <form className="pt-12 px-6" onSubmit={handleGo}>
+              <label className="block my-2">
+                Select Term:{" "}
+                <input
+                  className="text-xs border-0 py-1.5 px-2 rounded-md ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 placeholder:text-gray-400"
+                  id="term"
+                  type="text"
+                  placeholder="23F"
+                />
+              </label>
+              <label className="my-2">
+                <input
+                  className="block py-2 text-sm file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-slate-200"
+                  id="audit"
+                  type="file"
+                  accept="text/html"
+                />
+              </label>
+              <button className="bg-slate-200 py-2 px-4 my-2" type="submit">
+                GO!
+              </button>
+            </form>
+          ) : (
+            ""
+          )}
+          <div>
+            {requirements.map((requirement, i) => (
+              <Requirement key={i} src={requirement} />
+            ))}
+          </div>
+        </div>
+        <div className="pr-4 w-3/5 pt-12 right-0 fixed">
+          <Schedule />
+        </div>
+      </div>
     </main>
-  )
+  );
 }
