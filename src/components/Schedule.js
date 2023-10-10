@@ -16,7 +16,7 @@ function hasOverlap(day, class1, class2) {
 
 export default function Schedule() {
   const selectedSections = useStore((state) => state.selectedSections);
-  const term = useStore((state) => state.term)
+  const term = useStore((state) => state.term);
 
   let colors = [
     "red",
