@@ -5,6 +5,7 @@ import useStore from "@/hooks/useStore";
 
 export default function Course({ course }) {
   const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState([]);
   const term = useStore((state) => state.term);
   const selectSection = useStore((state) => state.selectSection);
@@ -15,6 +16,9 @@ export default function Course({ course }) {
       setVisible(!visible);
       return;
     }
+
+    setLoading(true);
+    setVisible(!visible);
 
     let data = await $.ajax({
       type: "POST",
@@ -41,7 +45,10 @@ export default function Course({ course }) {
     setSections(
       $(data)
         .find(
-          `#${(course.dept + course.catlg).replace(" ", "")}-children > div`,
+          `[id='${(course.dept + course.catlg).replace(
+            " ",
+            "",
+          )}-children'] > div`,
         )
         .toArray()
         .map((e) => $(e))
@@ -63,7 +70,7 @@ export default function Course({ course }) {
         }),
     );
 
-    setVisible(!visible);
+    setLoading(false);
   }
 
   function toggleCheckbox(s, e) {
@@ -74,27 +81,33 @@ export default function Course({ course }) {
 
   return (
     <div>
-      <a onClick={showDetails}>
+      <a className="pl-1 cursor-pointer" onClick={showDetails}>
         {course.dept} {course.num}
       </a>
       {visible ? (
-        <div className="">
-          {sections.map((s, i) => (
-            <div key={i}>
-              <label className="flex h-5 text-xs items-center">
-                <input
-                  className="h-3 w-4 mr-1 rounded border-gray-300 focus:ring-indigo-600"
-                  type="checkbox"
-                  onChange={(e) => toggleCheckbox(s, e)}
-                />
-                {s.section} {s.day}{" "}
-                {typeof s.time !== "string"
-                  ? s.time[0].format("h:mma") + "-" + s.time[1].format("h:mma")
-                  : s.time}
-              </label>
-            </div>
-          ))}
-        </div>
+        loading ? (
+          <div className="pl-2">Loading...</div>
+        ) : (
+          <div className="pl-1">
+            {sections.map((s, i) => (
+              <div key={i}>
+                <label className="flex h-5 text-xs items-center">
+                  <input
+                    className="h-2.5 w-4 mr-1 rounded border-gray-300 focus:ring-indigo-600"
+                    type="checkbox"
+                    onChange={(e) => toggleCheckbox(s, e)}
+                  />
+                  {s.section} {s.day}{" "}
+                  {typeof s.time !== "string"
+                    ? s.time[0].format("h:mma") +
+                      "-" +
+                      s.time[1].format("h:mma")
+                    : s.time}
+                </label>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         ""
       )}
